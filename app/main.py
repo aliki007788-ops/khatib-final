@@ -10,8 +10,11 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from swagger_ui_bundle import swagger_ui_path
 
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -47,12 +50,20 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         lifespan=lifespan,
-        docs_url="/docs" if not settings.is_production else None,
+        docs_url=None,      # ← غیرفعال: به جای آن روت سفارشی پایین‌تر
         redoc_url=None,
     )
 
+    # Mount کردن فایل‌های استاتیک Swagger UI به صورت محلی (بدون CDN)
+    app.mount(
+        "/static/swagger-ui",
+        StaticFiles(directory=swagger_ui_path),
+        name="swagger-ui",
+    )
+
     app.add_middleware(RequestIDMiddleware)
-# app.add_middleware(SecurityHeadersMiddleware)
+    # app.add_middleware(SecurityHeadersMiddleware)
+
     if settings.allowed_hosts_list:
         app.add_middleware(
             TrustedHostMiddleware,
@@ -105,6 +116,17 @@ def create_app() -> FastAPI:
     app.include_router(privacy_router.router)
     app.include_router(eitaa_router.router)
     app.include_router(translate_router.router)
+
+    # ✅ روت سفارشی /docs با Swagger UI محلی
+    @app.get("/docs", include_in_schema=False)
+    async def custom_swagger_ui_html():
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " - Swagger UI",
+            swagger_js_url="/static/swagger-ui/swagger-ui-bundle.js",
+            swagger_css_url="/static/swagger-ui/swagger-ui.css",
+            swagger_favicon_url="/static/swagger-ui/favicon-32x32.png",
+        )
 
     @app.get("/metrics")
     def metrics():
