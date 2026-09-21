@@ -52,8 +52,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(RequestIDMiddleware)
-    # app.add_middleware(SecurityHeadersMiddleware)
-
+# app.add_middleware(SecurityHeadersMiddleware)
     if settings.allowed_hosts_list:
         app.add_middleware(
             TrustedHostMiddleware,
