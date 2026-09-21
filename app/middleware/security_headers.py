@@ -1,5 +1,7 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.config import settings
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -12,25 +14,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(self), geolocation=()"
         )
 
-        # CSP را در محیط Development برای /docs شل‌تر می‌کنیم
-        path = request.url.path
-        if path.startswith("/docs") or path.startswith("/openapi"):
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                "img-src 'self' data: https://fastapi.tiangolo.com; "
-                "connect-src 'self'"
-            )
-        else:
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self'; "
-                "script-src 'self'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data:; "
-                "connect-src 'self'; "
-                "media-src 'self' blob:;"
-            )
+        # در Development هیچ CSP سختی اعمال نکن (برای Swagger)
+        if not settings.is_production:
+            return response
+
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "media-src 'self' blob:;"
+        )
 
         if request.url.scheme == "https":
             response.headers["Strict-Transport-Security"] = (
