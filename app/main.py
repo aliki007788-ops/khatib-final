@@ -6,6 +6,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
 import time
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,6 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from swagger_ui_bundle import swagger_ui_path
 
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -36,6 +36,8 @@ from app.routers import translate as translate_router
 
 logger = logging.getLogger("khatib")
 
+BASE_DIR = Path(__file__).resolve().parent
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,14 +52,14 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         lifespan=lifespan,
-        docs_url=None,      # ← غیرفعال: به جای آن روت سفارشی پایین‌تر
+        docs_url=None,      # ← غیرفعال: به جایش روت سفارشی پایین‌تر
         redoc_url=None,
     )
 
-    # Mount کردن فایل‌های استاتیک Swagger UI به صورت محلی (بدون CDN)
+    # ✅ Mount کردن فایل‌های استاتیک Swagger UI از داخل پروژه (بدون CDN)
     app.mount(
         "/static/swagger-ui",
-        StaticFiles(directory=swagger_ui_path),
+        StaticFiles(directory=str(BASE_DIR / "static" / "swagger-ui")),
         name="swagger-ui",
     )
 
@@ -126,6 +128,7 @@ def create_app() -> FastAPI:
             swagger_js_url="/static/swagger-ui/swagger-ui-bundle.js",
             swagger_css_url="/static/swagger-ui/swagger-ui.css",
             swagger_favicon_url="/static/swagger-ui/favicon-32x32.png",
+            swagger_ui_parameters={"persistAuthorization": True},
         )
 
     @app.get("/metrics")
