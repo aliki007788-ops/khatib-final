@@ -1,0 +1,64 @@
+# ==========================================
+# keep-alive.yml
+# Version: 1.0.0
+# Last Change: Keep khatib-final
+ Render service awake (2026-09-15)
+# ==========================================
+# جلوگیری از sleep شدن سرویس رایگان Render
+# هر ۵ دقیقه یک‌بار /health را صدا می‌زند.
+#
+# تنظیم:
+# 1. این فایل را با پروژه به GitHub پوش کنید
+# 2. در Settings → Secrets and variables → Actions
+#    یک secret بسازید: ASHA_RENDER_URL
+#    مقدار: https://YOUR-SERVICE.onrender.com
+# 3. Actions را برای ریپو فعال نگه دارید
+
+name: Keep ASHA Render Alive
+
+on:
+  schedule:
+    # هر ۵ دقیقه (محدودیت GitHub: روی پلن رایگان ممکن است کمی تأخیر داشته باشد)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # اجرای دستی از تب Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping ASHA /health
+        env:
+          ASHA_URL: ${{ secrets.ASHA_RENDER_URL }}
+        run: |
+          if [ -z "$ASHA_URL" ]; then
+            echo "❌ Secret ASHA_RENDER_URL تنظیم نشده است."
+            echo "در GitHub → Settings → Secrets → Actions مقدار را بگذارید:"
+            echo "  https://YOUR-SERVICE.onrender.com"
+            exit 1
+          fi
+
+          # حذف اسلش انتهایی اگر وجود داشته باشد
+          BASE_URL="${ASHA_URL%/}"
+          HEALTH_URL="${BASE_URL}/health"
+
+          echo "🔔 Pinging ASHA: ${HEALTH_URL}"
+
+          HTTP_CODE=$(curl -s -o /tmp/asha_health.json -w "%{http_code}" \
+            -X GET "${HEALTH_URL}" \
+            -H "Accept: application/json" \
+            --max-time 45 || echo "000")
+
+          echo "HTTP status: ${HTTP_CODE}"
+          if [ -f /tmp/asha_health.json ]; then
+            echo "Response body:"
+            cat /tmp/asha_health.json || true
+            echo ""
+          fi
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ ASHA is alive!"
+            exit 0
+          else
+            echo "❌ Connection failed (HTTP ${HTTP_CODE})"
+            exit 1
+          fi
