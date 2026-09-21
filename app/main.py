@@ -37,6 +37,7 @@ from app.routers import translate as translate_router
 logger = logging.getLogger("khatib")
 
 BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static" / "swagger-ui"
 
 
 @asynccontextmanager
@@ -48,20 +49,28 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    print("=" * 70)
+    print("[KHATIB] BASE_DIR   :", BASE_DIR)
+    print("[KHATIB] STATIC_DIR :", STATIC_DIR)
+    print("[KHATIB] EXISTS     :", STATIC_DIR.exists())
+    print("=" * 70)
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
         lifespan=lifespan,
-        docs_url=None,      # ← غیرفعال: به جایش روت سفارشی پایین‌تر
+        docs_url=None,
         redoc_url=None,
     )
 
-    # ✅ Mount کردن فایل‌های استاتیک Swagger UI از داخل پروژه (بدون CDN)
-    app.mount(
-        "/static/swagger-ui",
-        StaticFiles(directory=str(BASE_DIR / "static" / "swagger-ui")),
-        name="swagger-ui",
-    )
+    if STATIC_DIR.exists():
+        app.mount(
+            "/static/swagger-ui",
+            StaticFiles(directory=str(STATIC_DIR)),
+            name="swagger-ui",
+        )
+    else:
+        logger.error("Swagger UI static dir not found: %s", STATIC_DIR)
 
     app.add_middleware(RequestIDMiddleware)
     # app.add_middleware(SecurityHeadersMiddleware)
@@ -106,7 +115,6 @@ def create_app() -> FastAPI:
             content={"detail": "خطای داخلی سرور رخ داد."},
         )
 
-    # All routers
     app.include_router(health_router.router)
     app.include_router(auth_router.router)
     app.include_router(billing_router.router)
@@ -119,7 +127,6 @@ def create_app() -> FastAPI:
     app.include_router(eitaa_router.router)
     app.include_router(translate_router.router)
 
-    # ✅ روت سفارشی /docs با Swagger UI محلی
     @app.get("/docs", include_in_schema=False)
     async def custom_swagger_ui_html():
         return get_swagger_ui_html(
