@@ -7,20 +7,30 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = (
-            "strict-origin-when-cross-origin"
-        )
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(self), geolocation=()"
         )
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:; "
-            "connect-src 'self'; "
-            "media-src 'self' blob:;"
-        )
+
+        # CSP را در محیط Development برای /docs شل‌تر می‌کنیم
+        path = request.url.path
+        if path.startswith("/docs") or path.startswith("/openapi"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "img-src 'self' data: https://fastapi.tiangolo.com; "
+                "connect-src 'self'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data:; "
+                "connect-src 'self'; "
+                "media-src 'self' blob:;"
+            )
 
         if request.url.scheme == "https":
             response.headers["Strict-Transport-Security"] = (
